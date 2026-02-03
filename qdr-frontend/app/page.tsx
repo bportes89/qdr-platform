@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, ScatterChart, Scatter, XAxis, YAxis, ZAxis } from 'recharts';
 import { Activity, Shield, TrendingUp, Cpu, ArrowRight, Zap, Target, Flame, AlertTriangle, Info, Plus, X, Lock, CheckCircle, CreditCard, LogIn, LogOut } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 // Types
 interface Metrics {
