@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import neal
-from pyqubo import Array, Constraint
 from typing import List, Dict, Any
 import math
 
@@ -47,6 +45,10 @@ class QuantumOptimizer:
         Returns:
             Dictionary with optimal weights and performance metrics.
         """
+        # Lazy import to speed up initial server startup
+        import neal
+        from pyqubo import Array, Constraint
+
         n_assets = len(self.tickers)
         
         # Define integer variables for weights (0 to num_slices) using binary expansion manually
