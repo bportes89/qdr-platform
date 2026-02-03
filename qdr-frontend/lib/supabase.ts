@@ -1,14 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Hardcoded credentials to ensure Vercel deployment works immediately
+const supabaseUrl = 'https://hrgjztjehubhdpdticrt.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyZ2p6dGplaHViaGRwZHRpY3J0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMDMyNjcsImV4cCI6MjA4NTY3OTI2N30.gARbNbzE-yEB4ZfJmvLKF9Ju_Y-QuQ_KgBYp1Ir526I';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase env variables are missing. Check your .env.local or Vercel settings.');
-}
-
-export const supabase = createClient(
-    supabaseUrl || 'https://placeholder.supabase.co', 
-    supabaseAnonKey || 'placeholder'
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
