@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, ScatterChart, Scatter, XAxis, YAxis, ZAxis } from 'recharts';
-import { Activity, Shield, TrendingUp, Cpu, ArrowRight, Zap, Target, Flame, AlertTriangle, Info, Plus, X, Lock, CheckCircle, CreditCard } from 'lucide-react';
+import { Activity, Shield, TrendingUp, Cpu, ArrowRight, Zap, Target, Flame, AlertTriangle, Info, Plus, X, Lock, CheckCircle, CreditCard, LogIn, LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 // Types
 interface Metrics {
@@ -20,9 +21,21 @@ interface OptimizationResult {
 }
 
 export default function Home() {
-  const [tickers, setTickers] = useState<string[]>(["BTC-USD", "ETH-USD", "AAPL", "MSFT", "TSLA", "GOOGL"]);
+  interface Asset {
+    symbol: string;
+    currentValue: number;
+  }
+
+  const [assets, setAssets] = useState<Asset[]>([
+    { symbol: "BTC-USD", currentValue: 5000 },
+    { symbol: "ETH-USD", currentValue: 3000 },
+    { symbol: "AAPL", currentValue: 2000 }
+  ]);
   const [newTicker, setNewTicker] = useState("");
-  const [investment, setInvestment] = useState<string>("10000"); // New state for investment amount
+  // investment state is now derived or used for "Total Target" if we want to allow cash injection,
+  // but for simplicity, let's keep it as "Total Portfolio Value" calculated from assets.
+  const totalEquity = assets.reduce((sum, asset) => sum + asset.currentValue, 0);
+
   const [mode, setMode] = useState<"conservative" | "aggressive">("conservative");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<OptimizationResult | null>(null);
@@ -30,30 +43,83 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   
-  // Auth & Plan State (Mock)
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Auth State
+  const [session, setSession] = useState<any>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  
+  // Plan State (Simulated based on login for now, usually would fetch from DB)
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
 
-  const handleLogin = () => {
-      // Simula login e verifica plano
-      setIsLoggedIn(true);
-      // Aqui você conectaria com seu backend/Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) setUserPlan('free'); // Default to free on login
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) setUserPlan('free');
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+        if (authMode === 'signup') {
+            const { error } = await supabase.auth.signUp({ email, password });
+            if (error) throw error;
+            alert('Cadastro realizado! Verifique seu e-mail para confirmar.');
+            setShowLoginModal(false);
+        } else {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            setShowLoginModal(false);
+        }
+    } catch (err: any) {
+        setAuthError(err.message);
+    } finally {
+        setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUserPlan('free');
   };
 
   const handleUpgrade = () => {
       setUserPlan('pro');
-      alert("Upgrade realizado com sucesso! (Simulação)");
+      alert("Upgrade realizado com sucesso! (Simulação - Em breve Stripe/MercadoPago)");
   };
 
   const handleAddTicker = () => {
-    if (newTicker && !tickers.includes(newTicker.toUpperCase())) {
-      setTickers([...tickers, newTicker.toUpperCase()]);
+    const upperTicker = newTicker.toUpperCase();
+    if (upperTicker && !assets.some(a => a.symbol === upperTicker)) {
+      setAssets([...assets, { symbol: upperTicker, currentValue: 0 }]);
       setNewTicker("");
     }
   };
 
   const handleRemoveTicker = (tickerToRemove: string) => {
-    setTickers(tickers.filter(t => t !== tickerToRemove));
+    setAssets(assets.filter(a => a.symbol !== tickerToRemove));
+  };
+
+  const handleUpdateAssetValue = (symbol: string, newValue: string) => {
+      const numValue = parseFloat(newValue) || 0;
+      setAssets(assets.map(a => a.symbol === symbol ? { ...a, currentValue: numValue } : a));
   };
 
   const handleOptimize = async () => {
@@ -75,7 +141,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tickers: tickers,
+          tickers: assets.map(a => a.symbol),
           risk_aversion: mode === "conservative" ? 2.0 : 0.1,
           num_slices: 20
         })
@@ -135,22 +201,116 @@ export default function Home() {
                  </div>
                  
                  <div className="flex gap-3">
-                    {!isLoggedIn ? (
-                        <button onClick={handleLogin} className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2">
-                            Login
+                    {!session ? (
+                        <button onClick={() => setShowLoginModal(true)} className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors border border-slate-700">
+                            <LogIn className="w-4 h-4" /> Entrar
                         </button>
                     ) : (
                         <div className="flex items-center gap-3">
-                            <span className="text-sm text-slate-400">Olá, Investidor</span>
+                            <div className="text-right hidden sm:block">
+                                <p className="text-xs text-slate-400">Logado como</p>
+                                <p className="text-sm font-bold text-slate-200">{session.user.email?.split('@')[0]}</p>
+                            </div>
                             {userPlan === 'free' && (
-                                <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">
+                                <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg shadow-orange-900/20">
                                     SEJA PRO
                                 </button>
                             )}
+                            <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 p-2 rounded-full hover:bg-slate-900 transition-colors" title="Sair">
+                                <LogOut className="w-5 h-5" />
+                            </button>
                         </div>
                     )}
                  </div>
             </div>
+
+            {/* Login Modal */}
+            <AnimatePresence>
+                {showLoginModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+                        onClick={() => setShowLoginModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                            className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-white">
+                                    {authMode === 'signin' ? 'Bem-vindo de volta' : 'Crie sua conta'}
+                                </h2>
+                                <button onClick={() => setShowLoginModal(false)} className="text-slate-500 hover:text-white">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleAuth} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                        placeholder="seu@email.com"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1">Senha</label>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                                        placeholder="••••••••"
+                                        minLength={6}
+                                    />
+                                </div>
+
+                                {authError && (
+                                    <div className="p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-200 text-sm">
+                                        {authError}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={authLoading}
+                                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                                >
+                                    {authLoading ? <Activity className="w-5 h-5 animate-spin" /> : (authMode === 'signin' ? 'Entrar' : 'Cadastrar')}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center text-sm text-slate-400">
+                                {authMode === 'signin' ? (
+                                    <>
+                                        Não tem uma conta?{' '}
+                                        <button onClick={() => setAuthMode('signup')} className="text-purple-400 hover:underline">
+                                            Cadastre-se grátis
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        Já tem conta?{' '}
+                                        <button onClick={() => setAuthMode('signin')} className="text-purple-400 hover:underline">
+                                            Fazer login
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mt-4">
             Otimize sua Carteira com Física Quântica
@@ -219,10 +379,10 @@ export default function Home() {
                 {/* Popular Chips */}
                 <div className="flex flex-wrap gap-2 mb-2">
                     {["BTC-USD", "ETH-USD", "SPY", "QQQ", "GLD"].map(t => (
-                        !tickers.includes(t) && (
+                        !assets.some(a => a.symbol === t) && (
                             <button 
                                 key={t}
-                                onClick={() => setTickers([...tickers, t])}
+                                onClick={() => setAssets([...assets, { symbol: t, currentValue: 0 }])}
                                 className="text-xs bg-slate-900/50 hover:bg-slate-800 border border-slate-800 rounded-full px-3 py-1 text-slate-400 transition-colors"
                             >
                                 + {t}
@@ -237,31 +397,46 @@ export default function Home() {
                     Dica: Para ações do Brasil use <strong>.SA</strong> (ex: PETR4.SA). Para Cripto use <strong>-USD</strong> (ex: BTC-USD).
                 </p>
 
-                {/* Ticker Tags */}
-                <div className="flex flex-wrap gap-2 min-h-[80px] p-3 bg-slate-950/50 border border-slate-800 rounded-lg">
-                    {tickers.length === 0 && <span className="text-slate-600 text-sm italic">Nenhum ativo selecionado...</span>}
-                    {tickers.map(ticker => (
-                        <span key={ticker} className="inline-flex items-center gap-1 bg-purple-900/20 text-purple-200 border border-purple-500/30 px-3 py-1 rounded-md text-sm">
-                            {ticker}
-                            <button onClick={() => handleRemoveTicker(ticker)} className="hover:text-purple-100"><X className="w-3 h-3" /></button>
+                {/* Asset Table Editor */}
+                <div className="bg-slate-950/50 border border-slate-800 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-12 gap-2 p-2 bg-slate-900 text-xs font-medium text-slate-400 border-b border-slate-800">
+                        <div className="col-span-5">Ativo</div>
+                        <div className="col-span-5">Valor Atual (R$)</div>
+                        <div className="col-span-2 text-right">Ação</div>
+                    </div>
+                    
+                    <div className="max-h-[300px] overflow-y-auto">
+                        {assets.length === 0 && <div className="p-4 text-center text-slate-600 text-sm italic">Nenhum ativo selecionado...</div>}
+                        {assets.map(asset => (
+                            <div key={asset.symbol} className="grid grid-cols-12 gap-2 p-2 items-center border-b border-slate-800/50 hover:bg-slate-900/30 transition-colors">
+                                <div className="col-span-5 font-mono text-purple-300 font-bold">{asset.symbol}</div>
+                                <div className="col-span-5">
+                                    <input 
+                                        type="number" 
+                                        value={asset.currentValue}
+                                        onChange={(e) => handleUpdateAssetValue(asset.symbol, e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-sm text-right focus:ring-1 focus:ring-purple-500 outline-none"
+                                    />
+                                </div>
+                                <div className="col-span-2 text-right">
+                                    <button onClick={() => handleRemoveTicker(asset.symbol)} className="text-slate-500 hover:text-red-400 p-1">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="p-3 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center">
+                        <span className="text-sm text-slate-400">Total Carteira:</span>
+                        <span className="text-lg font-bold text-emerald-400">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEquity)}
                         </span>
-                    ))}
+                    </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">Valor Total do Investimento (R$)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-slate-500 text-sm">R$</span>
-                  <input 
-                    type="number"
-                    value={investment}
-                    onChange={(e) => setInvestment(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 pl-9 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-                    placeholder="10000"
-                  />
-                </div>
-              </div>
+              {/* Removed old Total Investment Input since it is now calculated */}
+
 
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-3">Modo de Operação</label>
@@ -449,20 +624,23 @@ export default function Home() {
 
                       {chartData
                            .map(item => {
-                               // Simula carteira inicial igualitária (1/N) para gerar recomendações de rebalanceamento
-                               // Em produção, isso viria do input do usuário
-                               const currentWeight = 100 / tickers.length; 
+                               // Calculate current weight based on user input
+                               // totalEquity is already calculated from assets
+                               const asset = assets.find(a => a.symbol === item.name);
+                               const currentVal = asset ? asset.currentValue : 0;
+                               const currentWeight = totalEquity > 0 ? (currentVal / totalEquity) * 100 : 0;
+                               
                                const diff = item.value - currentWeight;
-                               return { ...item, currentWeight, diff };
+                               return { ...item, currentWeight, diff, currentVal };
                            })
                         .sort((a, b) => b.diff - a.diff) // Ordenar por maior mudança (Compra -> Venda)
                         .map((item, idx) => {
                             const isBuy = item.diff > 1; // Margem de 1%
                             const isSell = item.diff < -1;
                             const isHold = !isBuy && !isSell;
-                            const totalInv = parseFloat(investment) || 0;
-                            const currentValue = (item.currentWeight / 100) * totalInv;
-                            const targetValue = (item.value / 100) * totalInv;
+                            
+                            // Target Value uses the totalEquity (Rebalancing logic)
+                            const targetValue = (item.value / 100) * totalEquity;
                             
                             return (
                                 <div key={idx} className="grid grid-cols-12 gap-4 items-center p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:bg-slate-800 transition-colors">
@@ -474,7 +652,7 @@ export default function Home() {
                                     </div>
                                     
                                     <div className="col-span-3 text-center font-mono text-slate-400 text-xs">
-                                        <div className="font-bold">R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                        <div className="font-bold">R$ {item.currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                         <div className="text-[10px] opacity-60">({item.currentWeight.toFixed(1)}%)</div>
                                     </div>
                                     
@@ -509,23 +687,20 @@ export default function Home() {
                         })}
                         
                         {/* Itens que devem ser Zerados (Venda Total) - Lógica Extra */}
-                         {tickers
-                            .filter(t => !chartData.find(c => c.name === t))
-                            .map((ticker, idx) => {
-                             // Fix: Correctly calculate initial weight based on number of input tickers
-                             const currentWeight = 100 / tickers.length;
-                             const totalInv = parseFloat(investment) || 0;
-                             const currentValue = (currentWeight / 100) * totalInv;
+                         {assets
+                            .filter(t => !chartData.find(c => c.name === t.symbol))
+                            .map((asset, idx) => {
+                             const currentWeight = totalEquity > 0 ? (asset.currentValue / totalEquity) * 100 : 0;
                               return (
                                  <div key={`sell-all-${idx}`} className="grid grid-cols-12 gap-4 items-center p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:bg-slate-800 transition-colors opacity-75">
                                      <div className="col-span-3 flex items-center gap-3">
                                          <div className="w-1.5 h-8 rounded-full bg-slate-600" />
                                          <div>
-                                             <p className="font-bold text-sm text-slate-400">{ticker}</p>
+                                             <p className="font-bold text-sm text-slate-400">{asset.symbol}</p>
                                          </div>
                                      </div>
                                      <div className="col-span-3 text-center font-mono text-slate-400 text-xs">
-                                         <div className="font-bold">R$ {currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                         <div className="font-bold">R$ {asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                          <div className="text-[10px] opacity-60">({currentWeight.toFixed(1)}%)</div>
                                      </div>
                                      <div className="col-span-1 flex justify-center"><ArrowRight className="w-4 h-4 text-slate-600" /></div>
