@@ -15,7 +15,7 @@ interface Metrics {
 interface OptimizationResult {
   allocation: Record<string, number>;
   metrics: Metrics;
-  metadata: Record<string, string>;
+  metadata: Record<string, string> & { missing_tickers?: string };
   efficient_frontier?: { vol: number, ret: number, sharpe: number }[]; // Mock data for visualization
 }
 
@@ -217,7 +217,7 @@ export default function Home() {
                 </div>
 
                 {/* Popular Chips */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-2">
                     {["BTC-USD", "ETH-USD", "SPY", "QQQ", "GLD"].map(t => (
                         !tickers.includes(t) && (
                             <button 
@@ -230,6 +230,12 @@ export default function Home() {
                         )
                     ))}
                 </div>
+                
+                {/* Ticker Tip */}
+                <p className="text-[10px] text-slate-500 mb-4 px-1">
+                    <Info className="w-3 h-3 inline mr-1" />
+                    Dica: Para ações do Brasil use <strong>.SA</strong> (ex: PETR4.SA). Para Cripto use <strong>-USD</strong> (ex: BTC-USD).
+                </p>
 
                 {/* Ticker Tags */}
                 <div className="flex flex-wrap gap-2 min-h-[80px] p-3 bg-slate-950/50 border border-slate-800 rounded-lg">
@@ -321,6 +327,17 @@ export default function Home() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="space-y-6"
               >
+                {/* Missing Tickers Warning */}
+                {result.metadata.missing_tickers && (
+                    <div className="bg-orange-900/20 border border-orange-700/50 p-3 rounded-lg flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                        <div className="text-sm text-orange-200/80">
+                            <p className="font-bold text-orange-500 text-xs uppercase">Ativos Não Encontrados</p>
+                            <p className="text-xs">Os seguintes ativos não retornaram dados e foram ignorados: <strong className="text-white">{result.metadata.missing_tickers}</strong>. Verifique se o sufixo está correto (ex: .SA).</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Metrics Cards */}
                 <div className="grid grid-cols-3 gap-4">
                   <MetricCard 

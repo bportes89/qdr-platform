@@ -57,16 +57,20 @@ def optimize_portfolio(request: OptimizationRequest):
         # Note: In a real serverless env, caching would be used here.
         prices = ingestor.get_historical_data(tickers, period=request.period)
         
+        # Check which tickers were successfully retrieved
+        processed_tickers = list(prices.columns)
+        missing_tickers = list(set(tickers) - set(processed_tickers))
+        
         # 1.1 Fetch Real-Time Prices (Hybrid Source: Binance/Yahoo)
         real_time_prices = {}
-        for t in tickers:
+        for t in processed_tickers:
             try:
                 real_time_prices[t] = ingestor.get_realtime_price(t)
             except:
                 real_time_prices[t] = 0.0
 
         if prices.empty:
-            raise HTTPException(status_code=404, detail="No data found for provided tickers")
+            raise HTTPException(status_code=404, detail="No data found for provided tickers. Check symbols (e.g., use PETR4.SA for Brazil).")
             
         # 2. Engine
         optimizer = QuantumOptimizer(prices)
@@ -81,7 +85,8 @@ def optimize_portfolio(request: OptimizationRequest):
             "metadata": {
                 "status": result["status"],
                 "algorithm": "Simulated Annealing (QUBO)",
-                "tickers_processed": str(len(tickers))
+                "tickers_processed": str(len(processed_tickers)),
+                "missing_tickers": ", ".join(missing_tickers) if missing_tickers else ""
             },
             "current_prices": real_time_prices
         }

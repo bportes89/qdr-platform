@@ -54,25 +54,77 @@ class DataIngestion:
             period: Period to download (e.g., '1mo', '3mo', '6mo', '1y', '2y').
             
         Returns:
-            DataFrame containing Adjusted Close prices.
+            DataFrame containing Close prices.
         """
         if not tickers:
             return pd.DataFrame()
 
         print(f"Fetching data for: {tickers}")
         # Download data
-        data = yf.download(tickers, period=period, progress=False)
+        # auto_adjust=True usually returns 'Close' as adjusted close
+        try:
+            data = yf.download(tickers, period=period, progress=False, auto_adjust=False)
+        except Exception as e:
+            print(f"[DataIngestion] Download failed: {e}")
+            return pd.DataFrame()
         
-        # Extract 'Adj Close' or 'Close'
-        if 'Adj Close' in data:
-            prices = data['Adj Close']
-        elif 'Close' in data:
-            prices = data['Close']
-        else:
-            # Fallback for single ticker or different structure
-            prices = data
+        if data.empty:
+            return pd.DataFrame()
+
+        prices = pd.DataFrame()
+
+        # Handle MultiIndex columns (Price Type, Ticker)
+        if isinstance(data.columns, pd.MultiIndex):
+            # Try to get Adjusted Close, fallback to Close
+            # We need to be careful: sometimes 'Adj Close' is present for some but not others if download is messy
             
-        # Drop rows with NaN values to ensure data quality
+            # Strategy: Extract 'Adj Close' if available, otherwise 'Close'.
+            # If we have mixed availability, we might need to iterate or prefer Close.
+            
+            # Check if 'Adj Close' is a top-level key
+            if 'Adj Close' in data.columns.levels[0]:
+                prices = data['Adj Close']
+            elif 'Close' in data.columns.levels[0]:
+                prices = data['Close']
+            else:
+                # Fallback: look for Close in any level
+                try:
+                    prices = data.xs('Close', axis=1, level=0, drop_level=True)
+                except:
+                    pass
+            
+            # If we still have a MultiIndex (unlikely after selection) or if we missed some tickers:
+            # Let's double check. If 'Adj Close' was selected but some tickers are missing (NaN columns),
+            # we might want to check 'Close' for them. 
+            # For simplicity in this fix, we'll stick to one.
+            
+            # If prices is empty (e.g. neither found), try simple Close
+            if prices.empty and 'Close' in data:
+                 prices = data['Close']
+
+        else:
+            # Single level columns
+            if 'Adj Close' in data:
+                prices = data['Adj Close']
+            elif 'Close' in data:
+                prices = data['Close']
+            else:
+                prices = data
+
+        # Ensure prices is a DataFrame (if single ticker Series)
+        if isinstance(prices, pd.Series):
+            prices = prices.to_frame(name=tickers[0])
+            
+        # 1. Drop columns (tickers) that are all NaN (failed downloads or invalid tickers)
+        prices = prices.dropna(axis=1, how='all')
+        
+        # 2. Forward fill to handle different trading days (e.g. Crypto vs Stocks)
+        prices = prices.ffill()
+        
+        # 3. Backward fill to handle initial NaNs
+        prices = prices.bfill()
+        
+        # 4. Drop remaining rows with NaNs (if any)
         prices = prices.dropna()
         
         return prices
