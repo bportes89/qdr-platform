@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, ScatterChart, Scatter, XAxis, YAxis, ZAxis } from 'recharts';
-import { Activity, Shield, TrendingUp, Cpu, ArrowRight, Zap, Target, Flame, AlertTriangle, Info, Plus, X } from 'lucide-react';
+import { Activity, Shield, TrendingUp, Cpu, ArrowRight, Zap, Target, Flame, AlertTriangle, Info, Plus, X, Lock, CheckCircle, CreditCard } from 'lucide-react';
 
 // Types
 interface Metrics {
@@ -29,6 +29,21 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [showDisclaimer, setShowDisclaimer] = useState(true);
+  
+  // Auth & Plan State (Mock)
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
+
+  const handleLogin = () => {
+      // Simula login e verifica plano
+      setIsLoggedIn(true);
+      // Aqui você conectaria com seu backend/Supabase
+  };
+
+  const handleUpgrade = () => {
+      setUserPlan('pro');
+      alert("Upgrade realizado com sucesso! (Simulação)");
+  };
 
   const handleAddTicker = () => {
     if (newTicker && !tickers.includes(newTicker.toUpperCase())) {
@@ -111,14 +126,36 @@ export default function Home() {
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 shadow-lg shadow-purple-900/20"
+            className="flex flex-col items-center gap-4"
           >
-            <Cpu className="w-5 h-5 text-purple-400" />
-            <span className="text-sm font-medium text-purple-200">Quantum-Dynamic Rebalancing Engine</span>
-          </motion.div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <div className="flex justify-between w-full items-center px-4">
+                 <div className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 shadow-lg shadow-purple-900/20">
+                    <Cpu className="w-5 h-5 text-purple-400" />
+                    <span className="text-sm font-medium text-purple-200">Quantum-Dynamic Rebalancing Engine</span>
+                 </div>
+                 
+                 <div className="flex gap-3">
+                    {!isLoggedIn ? (
+                        <button onClick={handleLogin} className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2">
+                            Login
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-400">Olá, Investidor</span>
+                            {userPlan === 'free' && (
+                                <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">
+                                    SEJA PRO
+                                </button>
+                            )}
+                        </div>
+                    )}
+                 </div>
+            </div>
+
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mt-4">
             Otimize sua Carteira com Física Quântica
           </h1>
+          </motion.div>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
             Fuja da paralisia de análise. Nosso algoritmo de inspiração quântica encontra o equilíbrio matemático perfeito entre risco e retorno em milissegundos.
           </p>
@@ -341,10 +378,22 @@ export default function Home() {
                   </div>
 
                   {/* Efficient Frontier Chart (New Feature) */}
-                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 relative overflow-hidden group">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                         <Flame className="w-5 h-5 text-orange-400" /> Fronteira Eficiente (Risco x Retorno)
                     </h3>
+                    
+                    {userPlan === 'free' && (
+                        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 transition-opacity">
+                             <Lock className="w-10 h-10 text-slate-600 mb-2" />
+                             <p className="text-slate-300 font-semibold mb-1">Feature Pro</p>
+                             <p className="text-xs text-slate-500 max-w-[200px] text-center mb-3">Desbloqueie a visualização avançada de risco x retorno.</p>
+                             <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-full transition-colors">
+                                 Fazer Upgrade
+                             </button>
+                        </div>
+                    )}
+
                     <div className="h-[250px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
@@ -482,6 +531,82 @@ export default function Home() {
             )}
           </div>
         </motion.section>
+
+        {/* Pricing Section */}
+        <section id="pricing" className="py-12 border-t border-slate-900">
+            <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold text-white mb-4">Planos Flexíveis</h2>
+                <p className="text-slate-400">Comece grátis e escale seus investimentos com inteligência quântica.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                {/* Free Plan */}
+                <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-8 hover:border-slate-700 transition-colors relative">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+                        Iniciante
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Free</h3>
+                    <div className="flex items-baseline gap-1 mb-6">
+                        <span className="text-4xl font-bold text-white">R$ 0</span>
+                        <span className="text-slate-500">/mês</span>
+                    </div>
+                    <ul className="space-y-4 mb-8 text-sm text-slate-400">
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Otimização Básica (Markowitz)</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Até 5 Ativos</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Rebalanceamento Mensal</li>
+                        <li className="flex items-center gap-2 opacity-50"><X className="w-4 h-4" /> Sem Alertas em Tempo Real</li>
+                        <li className="flex items-center gap-2 opacity-50"><X className="w-4 h-4" /> Sem Suporte Prioritário</li>
+                    </ul>
+                    <button className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors">
+                        Começar Agora
+                    </button>
+                </div>
+
+                {/* Pro Plan */}
+                <div className="bg-slate-900/80 border border-purple-500/50 rounded-2xl p-8 relative shadow-2xl shadow-purple-900/20 transform scale-105">
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-lg">
+                        Mais Popular
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Trader Pro</h3>
+                    <div className="flex items-baseline gap-1 mb-6">
+                        <span className="text-4xl font-bold text-white">R$ 49</span>
+                        <span className="text-slate-500">/mês</span>
+                    </div>
+                    <ul className="space-y-4 mb-8 text-sm text-slate-300">
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> <strong>Quantum Annealing</strong> (Simulado)</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Ativos Ilimitados</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Fronteira Eficiente Dinâmica</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Alertas via Telegram/Email</li>
+                    </ul>
+                    <button 
+                        onClick={handleUpgrade}
+                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-purple-900/40 flex items-center justify-center gap-2"
+                    >
+                        <CreditCard className="w-4 h-4" /> Assinar Pro
+                    </button>
+                    <p className="text-center text-xs text-slate-500 mt-3">Cancelamento a qualquer momento.</p>
+                </div>
+
+                {/* Wealth Plan */}
+                <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-8 hover:border-slate-700 transition-colors">
+                    <h3 className="text-xl font-bold text-white mb-2">Wealth</h3>
+                    <div className="flex items-baseline gap-1 mb-6">
+                        <span className="text-4xl font-bold text-white">R$ 149</span>
+                        <span className="text-slate-500">/mês</span>
+                    </div>
+                    <ul className="space-y-4 mb-8 text-sm text-slate-400">
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500" /> Tudo do Plano Pro</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500" /> API de Execução Automática</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500" /> Consultoria Trimestral</li>
+                        <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500" /> Acesso Antecipado a Features</li>
+                    </ul>
+                    <button className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors">
+                        Falar com Vendas
+                    </button>
+                </div>
+            </div>
+        </section>
+
       </div>
     </div>
   );
