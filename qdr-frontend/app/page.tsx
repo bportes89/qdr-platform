@@ -332,7 +332,7 @@ export default function Home() {
                           <RechartsTooltip 
                             contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155' }}
                             itemStyle={{ color: '#e2e8f0' }}
-                            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Peso']}
+                            formatter={(value: any) => [`${Number(value).toFixed(1)}%`, 'Peso']}
                           />
                           <Legend />
                         </PieChart>
